@@ -1,42 +1,35 @@
-# [Your Streamlit code here - or just run the cells you already have]
 import streamlit as st
+import pandas as pd
+import joblib
+
+# Load the engine DNA
+@st.cache_resource
+def load_model():
+    model = joblib.load("models/gradient_boosting_model.joblib")
+    scaler = joblib.load("models/scaler.joblib")
+    return model, scaler
+
+loaded_gb_model, scaler = load_model()
+
 st.title("Predictive Maintenance")
+st.markdown("Monitor the engine failures before they happen.")
 
-%%writefile requirements.txt
-streamlit
-pandas
-scikit-learn
-joblib
+# Telemetry Sliders
+engine_rpm = st.slider("Engine RPM", 0, 3000, 1000)
+lub_oil_pressure = st.slider("Lub Oil Pressure", 0.0, 10.0, 3.0)
+fuel_pressure = st.slider("Fuel Pressure", 0.0, 25.0, 6.0)
+coolant_pressure = st.slider("Coolant Pressure", 0.0, 10.0, 2.5)
+lub_oil_temp = st.slider("Lub Oil Temp", 50.0, 150.0, 75.0)
+coolant_temp = st.slider("Coolant Temp", 50.0, 200.0, 80.0)
 
-%%writefile Dockerfile
-FROM python:3.9-slim
-WORKDIR /app
-COPY . .
-RUN pip install -r requirements.txt
-CMD ["streamlit", "run", "app.py", "--server.port=7860", "--server.address=0.0.0.0"]
-
-# 2. Re-Sync the Pipeline (The Bridge)
-import os
-os.makedirs('.github/workflows', exist_ok=True)
-with open('.github/workflows/pipeline.yml', 'w') as f:
-    f.write("""
-name: Sync to Hugging Face Spaces
-on: [push]
-jobs:
-  sync:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: {fetch-depth: 0, lfs: true}
-      - name: Push to hub
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          git remote add hf https://krishna8787:${{ env.HF_TOKEN }}@huggingface.co/spaces/krishna8787/PredictiveMaintenance
-          git push --force hf HEAD:main
-""")
-
-# 3. The Final Push (The 9-Symmetry Strike)
-!git add app.py requirements.txt Dockerfile .github/ .gitignore
-!git commit -m "FinalPush"
-!git push origin main --force
+if st.button("Predict Engine Condition"):
+    input_data = pd.DataFrame([[engine_rpm, lub_oil_pressure, fuel_pressure, coolant_pressure, lub_oil_temp, coolant_temp]], 
+                              columns=['Engine rpm', 'Lub oil pressure', 'Fuel pressure', 'Coolant pressure', 'lub oil temp', 'Coolant temp'])
+    
+    scaled_data = scaler.transform(input_data)
+    prediction = loaded_gb_model.predict(scaled_data)
+    
+    if prediction[0] == 1:
+        st.error("Engine Failure Predicted - Maintenance Required!")
+    else:
+        st.success("Engine is Operating Normally")
