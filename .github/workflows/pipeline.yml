@@ -1,0 +1,15 @@
+
+name: Sync to Hugging Face Spaces
+on: [push]
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, lfs: true}
+      - name: Push to hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git remote add hf https://krishna8787:${{ env.HF_TOKEN }}@huggingface.co/spaces/krishna8787/PredictiveMaintenance
+          git push --force hf HEAD:main
